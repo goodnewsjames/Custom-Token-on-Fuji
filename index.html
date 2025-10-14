@@ -3,106 +3,140 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Add MegaTanker Token</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background: #f4f6f8;
-    }
-    .card {
-      background: white;
-      padding: 2rem;
-      border-radius: 20px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      text-align: center;
-      max-width: 400px;
-    }
-    img {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      margin-bottom: 1rem;
-    }
-    button {
-      background: #e84142;
-      border: none;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    button:hover {
-      background: #c73233;
-    }
-  </style>
+  <title>MegaTanker Token Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@metamask/detect-provider/dist/detect-provider.min.js"></script>
 </head>
-<body>
-  <div class="card">
-    <img src="https://i.ibb.co/wZB38MKn/MTK-logo.png" alt="MegaTanker Logo" />
-    <h2>MegaTanker (MTK)</h2>
-    <p>Network: Avalanche Fuji Testnet</p>
-    <button id="addToken">Add to Wallet</button>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen flex items-center justify-center">
+
+  <div class="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-8 w-[90%] max-w-md text-center text-white">
+    <img src="https://i.ibb.co/wZB38MKn/MTK-logo.png" alt="MegaTanker Logo"
+         class="w-28 h-28 rounded-full mx-auto shadow-lg mb-4 border border-white/30">
+    <h1 class="text-3xl font-bold mb-2 tracking-wide">MegaTanker (MTK)</h1>
+    <p class="text-sm text-gray-300 mb-6">Avalanche Fuji Testnet</p>
+
+    <div id="wallet-section" class="space-y-4">
+      <button id="connectWallet" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 rounded-xl font-semibold transition">
+        Connect Wallet
+      </button>
+      <div id="walletInfo" class="hidden space-y-3">
+        <p class="text-gray-200 text-sm">Connected: <span id="walletAddress" class="font-mono text-gray-100"></span></p>
+        <button id="switchNetwork" class="w-full py-2 bg-teal-600 hover:bg-teal-700 rounded-xl transition">
+          Switch to Fuji Testnet
+        </button>
+        <button id="addToken" class="w-full py-2 bg-pink-600 hover:bg-pink-700 rounded-xl transition">
+          Add MTK Token
+        </button>
+        <button id="disconnectWallet" class="w-full py-2 bg-gray-600 hover:bg-gray-700 rounded-xl transition">
+          Disconnect Wallet
+        </button>
+      </div>
+    </div>
   </div>
 
-  <!-- ✅ Import MetaMask provider detector -->
-  <script src="https://unpkg.com/@metamask/detect-provider/dist/detect-provider.min.js"></script>
+  <script type="module">
+    import detectEthereumProvider from "https://cdn.jsdelivr.net/npm/@metamask/detect-provider@2.0.1/dist/detect-provider.min.js";
 
-  <script>
-    document.getElementById('addToken').addEventListener('click', async () => {
-      const provider = await detectEthereumProvider();
+    const connectWalletBtn = document.getElementById("connectWallet");
+    const disconnectWalletBtn = document.getElementById("disconnectWallet");
+    const walletSection = document.getElementById("wallet-section");
+    const walletInfo = document.getElementById("walletInfo");
+    const walletAddressEl = document.getElementById("walletAddress");
+    const switchNetworkBtn = document.getElementById("switchNetwork");
+    const addTokenBtn = document.getElementById("addToken");
+
+    let provider;
+    let currentAccount = null;
+
+    async function connectWallet() {
+      provider = await detectEthereumProvider();
 
       if (!provider) {
-        alert('Please install MetaMask or another EVM wallet extension.');
+        alert("Please install MetaMask or another EVM wallet extension.");
         return;
       }
 
       try {
-        // Request wallet connection first
-        await provider.request({ method: 'eth_requestAccounts' });
+        const accounts = await provider.request({ method: "eth_requestAccounts" });
+        currentAccount = accounts[0];
+        updateUI();
+      } catch (error) {
+        alert("Connection rejected.");
+      }
+    }
 
-        // Switch to Avalanche Fuji Testnet
+    async function disconnectWallet() {
+      currentAccount = null;
+      updateUI();
+    }
+
+    async function switchToFuji() {
+      try {
         await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0xa869' }], // Fuji Testnet chainId
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0xa869" }],
         });
+        alert("✅ Switched to Avalanche Fuji Testnet");
+      } catch (error) {
+        if (error.code === 4902) {
+          await provider.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: "0xa869",
+              chainName: "Avalanche Fuji Testnet",
+              nativeCurrency: {
+                name: "Avalanche",
+                symbol: "AVAX",
+                decimals: 18,
+              },
+              rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
+              blockExplorerUrls: ["https://testnet.snowtrace.io/"],
+            }],
+          });
+        } else {
+          alert("Error switching network: " + error.message);
+        }
+      }
+    }
 
-        // Token details
-        const tokenAddress = '0x57c3804b6cB541246d42F037dDAb1431f7fd88B5';
-        const tokenSymbol = 'MTK';
-        const tokenDecimals = 18;
-        const tokenImage = 'https://i.ibb.co/wZB38MKn/MTK-logo.png';
+    async function addToken() {
+      const tokenAddress = "0x57c3804b6cB541246d42F037dDAb1431f7fd88B5";
+      const tokenSymbol = "MTK";
+      const tokenDecimals = 18;
+      const tokenImage = "https://i.ibb.co/wZB38MKn/MTK-logo.png";
 
-        // Add token
+      try {
         const wasAdded = await provider.request({
-          method: 'wallet_watchAsset',
+          method: "wallet_watchAsset",
           params: {
-            type: 'ERC20',
-            options: {
-              address: tokenAddress,
-              symbol: tokenSymbol,
-              decimals: tokenDecimals,
-              image: tokenImage,
-            },
+            type: "ERC20",
+            options: { address: tokenAddress, symbol: tokenSymbol, decimals: tokenDecimals, image: tokenImage },
           },
         });
 
-        if (wasAdded) {
-          alert('✅ MegaTanker (MTK) added to your wallet!');
-        } else {
-          alert('❌ Token addition cancelled.');
-        }
-
-      } catch (err) {
-        console.error(err);
-        alert('Error: ' + err.message);
+        if (wasAdded) alert("✅ MegaTanker (MTK) added to wallet!");
+        else alert("❌ Token addition cancelled.");
+      } catch (error) {
+        alert("Error adding token: " + error.message);
       }
-    });
+    }
+
+    function updateUI() {
+      if (currentAccount) {
+        connectWalletBtn.classList.add("hidden");
+        walletInfo.classList.remove("hidden");
+        walletAddressEl.textContent = `${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}`;
+      } else {
+        connectWalletBtn.classList.remove("hidden");
+        walletInfo.classList.add("hidden");
+      }
+    }
+
+    // Event listeners
+    connectWalletBtn.addEventListener("click", connectWallet);
+    disconnectWalletBtn.addEventListener("click", disconnectWallet);
+    switchNetworkBtn.addEventListener("click", switchToFuji);
+    addTokenBtn.addEventListener("click", addToken);
   </script>
 </body>
 </html>
