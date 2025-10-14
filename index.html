@@ -1,151 +1,173 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MegaTanker Token</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <title>MegaTanker MTK - Add to Wallet</title>
   <style>
     body {
-      font-family: 'Poppins', sans-serif;
-      background: linear-gradient(135deg, #0e1117, #1e2837);
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0b0f19, #1a2234);
       color: #fff;
+      font-family: "Poppins", sans-serif;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
       text-align: center;
     }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      width: 90%;
+      max-width: 400px;
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 20px;
+      border: 2px solid #ff5f79;
+    }
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 1px;
+    }
+    p {
+      margin: 8px 0 24px;
+      font-size: 1rem;
+      color: #ccc;
+    }
     button {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin: 12px 0;
+      font-size: 1rem;
+      color: #fff;
       background-color: #e94560;
-      color: white;
       border: none;
       border-radius: 12px;
-      padding: 12px 24px;
-      margin: 8px;
-      font-size: 1rem;
       cursor: pointer;
-      transition: 0.2s ease;
+      transition: background 0.2s ease, transform 0.1s ease;
     }
     button:hover {
       background-color: #ff5f79;
+      transform: scale(1.02);
     }
-    .card {
-      background: rgba(255,255,255,0.05);
-      border-radius: 20px;
-      padding: 40px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    button.chain-btn {
+      background-color: #1e88e5;
     }
-    #address {
-      font-size: 0.9rem;
-      color: #ccc;
-      margin-top: 10px;
+    button.chain-btn:hover {
+      background-color: #3b9ef3;
+    }
+    button.token-btn {
+      background-color: #e94560;
+    }
+    button.token-btn:hover {
+      background-color: #ff5f79;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>🚀 Add MegaTanker (MTK)</h1>
-    <p>Chain: Avalanche Fuji Testnet</p>
+    <img class="logo" src="https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg" alt="MTK Logo" />
+    <h1>MegaTanker (MTK)</h1>
+    <p>Ticker: MTK</p>
 
-    <button id="connect">Connect Wallet</button>
-    <button id="addToken">Add MTK Token</button>
-    <button id="disconnect">Disconnect</button>
-
-    <div id="address"></div>
+    <button class="chain-btn" id="btnAddChain">Add / Switch Fuji Testnet</button>
+    <button class="token-btn" id="btnAddToken">Add MTK Token</button>
   </div>
 
   <script>
-    const tokenAddress = "0x57c3804b6cB541246d42F037dDAb1431f7fd88B5";
-    const tokenSymbol = "MTK";
-    const tokenDecimals = 18;
-    const tokenImage = "https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg";
+    // Token info
+    const TOKEN_ADDRESS = "0x57c3804b6cB541246d42F037dDAb1431f7fd88B5";
+    const TOKEN_SYMBOL = "MTK";
+    const TOKEN_DECIMALS = 18;
+    const TOKEN_IMAGE = "https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg";
 
-    const fujiChainId = "0xA869"; // 43113 in hex
-    let provider;
-    let signer;
+    // Fuji chain config
+    const FUJI_CHAIN_ID = "0xA869"; // 43113 in hex
+    const FUJI_PARAMS = {
+      chainId: FUJI_CHAIN_ID,
+      chainName: "Avalanche Fuji Testnet",
+      nativeCurrency: {
+        name: "Avalanche",
+        symbol: "AVAX",
+        decimals: 18,
+      },
+      rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
+      blockExplorerUrls: ["https://testnet.snowtrace.io/"]
+    };
 
-    async function connectWallet() {
+    async function addOrSwitchFuji() {
       if (!window.ethereum) {
-        alert("Please install MetaMask or another EVM wallet!");
+        alert("No injected wallet found. Install MetaMask or other EVM wallet.");
         return;
       }
-
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      signer = provider.getSigner();
-
-      const chainId = await provider.send("eth_chainId", []);
-      if (chainId !== fujiChainId) {
-        await switchToFuji();
-      }
-
-      const address = await signer.getAddress();
-      document.getElementById("address").innerText = `Connected: ${address}`;
-    }
-
-    async function switchToFuji() {
       try {
+        // Try switching
         await window.ethereum.request({
           method: "wallet_switchEthereumChain",
-          params: [{ chainId: fujiChainId }],
+          params: [{ chainId: FUJI_CHAIN_ID }],
         });
+        console.log("Switched to Fuji");
       } catch (switchError) {
-        // If the chain isn’t added, add it
+        // If chain not added
         if (switchError.code === 4902) {
-          await window.ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [{
-              chainId: fujiChainId,
-              chainName: "Avalanche Fuji Testnet",
-              nativeCurrency: { name: "Avalanche", symbol: "AVAX", decimals: 18 },
-              rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
-              blockExplorerUrls: ["https://testnet.snowtrace.io/"],
-            }],
-          });
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [FUJI_PARAMS],
+            });
+            console.log("Added Fuji chain");
+          } catch (addError) {
+            console.error("Failed to add Fuji chain:", addError);
+            alert("Failed to add Fuji chain: " + addError.message);
+          }
         } else {
-          throw switchError;
+          console.error("Error switching chain:", switchError);
+          alert("Failed to switch chain: " + switchError.message);
         }
       }
     }
 
     async function addToken() {
+      if (!window.ethereum) {
+        alert("No injected wallet found.");
+        return;
+      }
       try {
         const wasAdded = await window.ethereum.request({
           method: "wallet_watchAsset",
           params: {
             type: "ERC20",
             options: {
-              address: tokenAddress,
-              symbol: tokenSymbol,
-              decimals: tokenDecimals,
-              image: tokenImage,
+              address: TOKEN_ADDRESS,
+              symbol: TOKEN_SYMBOL,
+              decimals: TOKEN_DECIMALS,
+              image: TOKEN_IMAGE,
             },
           },
         });
-
         if (wasAdded) {
-          alert("🎉 MTK successfully added to your wallet!");
+          console.log("Token added");
         } else {
-          alert("❌ Token addition rejected.");
+          console.log("Token addition rejected");
         }
-      } catch (error) {
-        console.error(error);
-        alert("Error adding token: " + error.message);
+      } catch (err) {
+        console.error("Error adding token:", err);
+        alert("Error adding token: " + err.message);
       }
     }
 
-    function disconnectWallet() {
-      signer = null;
-      provider = null;
-      document.getElementById("address").innerText = "";
-      alert("Wallet disconnected.");
-    }
-
-    document.getElementById("connect").onclick = connectWallet;
-    document.getElementById("addToken").onclick = addToken;
-    document.getElementById("disconnect").onclick = disconnectWallet;
+    document.getElementById("btnAddChain").addEventListener("click", addOrSwitchFuji);
+    document.getElementById("btnAddToken").addEventListener("click", addToken);
   </script>
 </body>
 </html>
