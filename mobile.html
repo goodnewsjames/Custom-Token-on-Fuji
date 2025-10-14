@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MegaTanker Token | Avalanche Fuji</title>
+  <script src="https://unpkg.com/@walletconnect/client@2.9.0/dist/index.umd.js"></script>
+  <script src="https://unpkg.com/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0b0f19, #1a2234);
+      color: #fff;
+      font-family: "Poppins", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      width: 90%;
+      max-width: 400px;
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 20px;
+      border: 2px solid #ff5f79;
+    }
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+    p {
+      margin: 8px 0 24px;
+      font-size: 1rem;
+      color: #ccc;
+    }
+    button {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin: 12px 0;
+      font-size: 1rem;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+    button:hover {
+      transform: scale(1.02);
+    }
+    .chain-btn {
+      background-color: #1e88e5;
+    }
+    .token-btn {
+      background-color: #e94560;
+    }
+    .connect-btn {
+      background-color: #23d18b;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img
+      class="logo"
+      src="https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg"
+      alt="MTK Logo"
+    />
+    <h1>MegaTanker (MTK)</h1>
+    <p>Ticker: MTK</p>
+
+    <button class="connect-btn" id="connectWallet">Connect Wallet</button>
+    <button class="chain-btn" id="btnAddChain">Add / Switch to Fuji Testnet</button>
+    <button class="token-btn" id="btnAddToken">Add MTK Token</button>
+  </div>
+
+  <script>
+    const TOKEN_ADDRESS = "0x57c3804b6cB541246d42F037dDAb1431f7fd88B5";
+    const TOKEN_SYMBOL = "MTK";
+    const TOKEN_DECIMALS = 18;
+    const TOKEN_IMAGE =
+      "https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg";
+    const FUJI_CHAIN_ID = "0xA869";
+
+    const FUJI_PARAMS = {
+      chainId: FUJI_CHAIN_ID,
+      chainName: "Avalanche Fuji Testnet",
+      nativeCurrency: { name: "Avalanche", symbol: "AVAX", decimals: 18 },
+      rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
+      blockExplorerUrls: ["https://testnet.snowtrace.io/"],
+    };
+
+    let provider;
+
+    function getProvider() {
+      if (window.ethereum) return window.ethereum; // MetaMask / Rabby
+      return null;
+    }
+
+    async function connectWallet() {
+      provider = getProvider();
+
+      if (provider) {
+        try {
+          await provider.request({ method: "eth_requestAccounts" });
+          alert("✅ Wallet connected!");
+        } catch (err) {
+          alert("Connection rejected.");
+        }
+      } else {
+        // --- No extension detected: Use deep links or WalletConnect ---
+        const dappUrl = window.location.href;
+        const metamaskUrl = `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//, "")}`;
+        const trustUrl = `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(dappUrl)}`;
+        const rabbyUrl = `rabby://dapp?url=${encodeURIComponent(dappUrl)}`;
+
+        // Try to open MetaMask mobile or Trust Wallet
+        const userAgent = navigator.userAgent.toLowerCase();
+        if (/android|iphone|ipad|ipod/.test(userAgent)) {
+          // Mobile device detected
+          window.location.href = metamaskUrl; // MetaMask mobile deep link
+          setTimeout(() => { window.location.href = trustUrl; }, 1500); // Fallback to Trust Wallet
+        } else {
+          alert("Please open this page inside your mobile wallet (MetaMask or Trust).");
+        }
+      }
+    }
+
+    async function addOrSwitchFuji() {
+      const provider = getProvider();
+      if (!provider) {
+        alert("Please open this page in your wallet browser.");
+        return;
+      }
+
+      try {
+        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: FUJI_CHAIN_ID }] });
+        alert("✅ Switched to Avalanche Fuji Testnet!");
+      } catch (error) {
+        if (error.code === 4902) {
+          await provider.request({ method: "wallet_addEthereumChain", params: [FUJI_PARAMS] });
+          alert("✅ Fuji Testnet added!");
+        } else {
+          console.error(error);
+        }
+      }
+    }
+
+    async function addToken() {
+      const provider = getProvider();
+      if (!provider) {
+        alert("Please open this page in your wallet browser.");
+        return;
+      }
+
+      try {
+        await provider.request({
+          method: "wallet_watchAsset",
+          params: {
+            type: "ERC20",
+            options: {
+              address: TOKEN_ADDRESS,
+              symbol: TOKEN_SYMBOL,
+              decimals: TOKEN_DECIMALS,
+              image: TOKEN_IMAGE,
+            },
+          },
+        });
+        alert("🎉 Token added successfully!");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById("connectWallet").addEventListener("click", connectWallet);
+    document.getElementById("btnAddChain").addEventListener("click", addOrSwitchFuji);
+    document.getElementById("btnAddToken").addEventListener("click", addToken);
+  </script>
+</body>
+</html>
