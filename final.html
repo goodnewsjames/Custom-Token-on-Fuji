@@ -185,33 +185,151 @@
       }
     }
 
-    async function addToken() {
-      if (!window.ethereum) {
-        alert("No wallet found. Open inside MetaMask, Rabby, or Trust Wallet browser.");
-        return;
-      }
-      try {
-        const wasAdded = await window.ethereum.request({
-          method: "wallet_watchAsset",
-          params: {
-            type: "ERC20",
-            options: {
-              address: TOKEN_ADDRESS,
-              symbol: TOKEN_SYMBOL,
-              decimals: TOKEN_DECIMALS,
-              image: TOKEN_IMAGE,
-            },
-          },
-        });
-        if (wasAdded) {
-          statusEl.textContent = "✅ Token added to your wallet!";
-        } else {
-          statusEl.textContent = "Token addition rejected.";
-        }
-      } catch (err) {
-        statusEl.textContent = "❌ Error adding token: " + err.message;
-      }
+   async function addTokenWithEnsureFuji({
+  tokenAddress = TOKEN_ADDRESS,
+  tokenSymbol = TOKEN_SYMBOL,
+  tokenDecimals = TOKEN_DECIMALS,
+  tokenImage = TOKEN_IMAGE,
+  requiredChainId = "0xA869", // Fuji
+  chainParams = FUJI_PARAMS
+} = {}) {
+  const provider = window.ethereum;
+  const status = (msg) => { console.log(msg); statusEl.textContent = msg; };
+
+  if (!provider) {
+    alert("No injected wallet detected. Please open this page in your wallet's internal browser (MetaMask/Trust/etc.) or use a browser with an injected wallet.");
+    return;
+  }
+
+  // helper: get chain id
+  async function getChainId() {
+    try {
+      return await provider.request({ method: "eth_chainId" });
+    } catch (e) {
+      return null;
     }
+  }
+
+  // helper: switch or add + switch
+  async function ensureFuji() {
+    const current = await getChainId();
+    if (current === requiredChainId) {
+      return true;
+    }
+
+    try {
+      // try switching first
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: requiredChainId }]
+      });
+      return true;
+    } catch (switchErr) {
+      // 4902 -> chain not found in wallet; try to add
+      if (switchErr && switchErr.code === 4902) {
+        try {
+          await provider.request({
+            method: "wallet_addEthereumChain",
+            params: [chainParams]
+          });
+          // after adding, request switch again
+          await provider.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: requiredChainId }]
+          });
+          return true;
+        } catch (addErr) {
+          console.error("wallet_addEthereumChain failed:", addErr);
+          return false;
+        }
+      }
+      console.error("wallet_switchEthereumChain failed:", switchErr);
+      return false;
+    }
+  }
+
+  // Step 1: ensure chain
+  status("Ensuring wallet is on Fuji testnet...");
+  const ok = await ensureFuji();
+  if (!ok) {
+    alert("Could not switch/add Fuji in your wallet. Please add it manually and retry.");
+    return;
+  }
+
+  // Step 2: wait for chain to actually be set (listen or poll)
+  let chain = await getChainId();
+  if (chain !== requiredChainId) {
+    status("Waiting for chain to switch...");
+    // wait up to 6s for chainChanged
+    await new Promise((resolve) => {
+      const onChainChanged = (_chainId) => {
+        if (_chainId === requiredChainId) {
+          provider.removeListener("chainChanged", onChainChanged);
+          resolve();
+        }
+      };
+      provider.on && provider.on("chainChanged", onChainChanged);
+      // fallback poll
+      const interval = setInterval(async () => {
+        const c = await getChainId();
+        if (c === requiredChainId) {
+          clearInterval(interval);
+          provider.removeListener && provider.removeListener("chainChanged", onChainChanged);
+          resolve();
+        }
+      }, 500);
+      // timeout
+      setTimeout(() => {
+        clearInterval(interval);
+        provider.removeListener && provider.removeListener("chainChanged", onChainChanged);
+        resolve();
+      }, 6000);
+    });
+    chain = await getChainId();
+  }
+
+  if (chain !== requiredChainId) {
+    status("Wallet is not on Fuji. Please switch manually and then click Add Token.");
+    return;
+  }
+
+  // Step 3: call wallet_watchAsset
+  status("Requesting wallet to add token...");
+  try {
+    const wasAdded = await provider.request({
+      method: "wallet_watchAsset",
+      params: {
+        type: "ERC20",
+        options: {
+          address: tokenAddress,
+          symbol: tokenSymbol,
+          decimals: tokenDecimals,
+          image: tokenImage
+        },
+      },
+    });
+    if (wasAdded) {
+      status("✅ Token added to wallet!");
+      return;
+    } else {
+      status("Token addition rejected by user or wallet.");
+      showManualAddUI();
+      return;
+    }
+  } catch (err) {
+    console.error("wallet_watchAsset error:", err);
+    // Some wallets (Trust older versions) will throw; show manual fallback
+    status("Automatic token add failed in this wallet. Showing manual instructions.");
+    showManualAddUI();
+    return;
+  }
+
+  // fallback UI: shows contract info and short manual instructions
+  function showManualAddUI() {
+    const manualMsg = `Automatic add not supported. Please add token manually in your wallet using:\n\nToken: ${tokenSymbol}\nContract: ${tokenAddress}\nDecimals: ${tokenDecimals}\nNetwork: Avalanche Fuji (43113)\n\nOpen your wallet -> Add token -> Custom token -> paste the contract address.`;
+    alert(manualMsg);
+  }
+}
 
     // ==== EVENT LISTENERS ====
     document.getElementById("btnAddChain").addEventListener("click", addOrSwitchFuji);
