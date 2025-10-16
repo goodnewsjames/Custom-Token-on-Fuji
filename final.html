@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MegaTanker Airdrop | Avalanche Fuji</title>
-  <script src="https://unpkg.com/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+  <title>Token Airdrop Demo</title>
   <style>
     body {
       margin: 0;
@@ -18,14 +17,16 @@
       height: 100vh;
       text-align: center;
     }
+
     .card {
       background: rgba(255, 255, 255, 0.05);
       border-radius: 24px;
       padding: 40px;
       box-shadow: 0 8px 30px rgba(0,0,0,0.5);
       width: 90%;
-      max-width: 400px;
+      max-width: 420px;
     }
+
     .logo {
       width: 120px;
       height: 120px;
@@ -34,16 +35,19 @@
       margin-bottom: 20px;
       border: 2px solid #ff5f79;
     }
+
     h1 {
       margin: 0;
       font-size: 2rem;
       letter-spacing: 1px;
     }
+
     p {
       margin: 8px 0 24px;
       font-size: 1rem;
       color: #ccc;
     }
+
     button {
       display: block;
       width: 100%;
@@ -51,123 +55,194 @@
       margin: 12px 0;
       font-size: 1rem;
       color: #fff;
+      background-color: #e94560;
       border: none;
       border-radius: 12px;
       cursor: pointer;
       transition: background 0.2s ease, transform 0.1s ease;
     }
+
     button:hover {
+      background-color: #ff5f79;
       transform: scale(1.02);
     }
-    .chain-btn {
+
+    button.chain-btn {
       background-color: #1e88e5;
     }
-    .chain-btn:hover {
+
+    button.chain-btn:hover {
       background-color: #3b9ef3;
     }
-    .token-btn {
-      background-color: #e94560;
+
+    /* Copyable Address Box */
+    .copy-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 10px;
+      margin: 10px 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      word-break: break-all;
     }
-    .token-btn:hover {
-      background-color: #ff5f79;
-    }
-    .claim-btn {
-      background-color: #23d18b;
-    }
-    .claim-btn:hover {
-      background-color: #2af5a2;
-    }
-    input {
-      width: 100%;
-      padding: 12px;
-      border-radius: 10px;
+
+    .copy-box button {
+      background: #e94560;
       border: none;
-      margin: 12px 0;
-      font-size: 1rem;
-      text-align: center;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    /* Dialog */
+    .dialog {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(30, 35, 50, 0.95);
+      border: 1px solid #444;
+      border-radius: 16px;
+      padding: 24px;
+      width: 90%;
+      max-width: 360px;
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.6);
+      z-index: 100;
+    }
+
+    .dialog h2 {
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+    }
+
+    .dialog p {
+      font-size: 0.9rem;
+      color: #ccc;
+      margin-bottom: 10px;
+    }
+
+    .close-btn {
+      margin-top: 10px;
+      background: #1e88e5;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <img class="logo" src="https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg" alt="MTK Logo" />
-    <h1>MegaTanker (MTK)</h1>
-    <p>Avalanche Fuji Testnet</p>
+    <img id="tokenLogo" class="logo" src="" alt="Token Logo" />
+    <h1 id="tokenName">Token Name</h1>
+    <p id="tokenSymbolText">Ticker: TKN</p>
+
+    <!-- Copyable Contract Address -->
+    <div class="copy-box">
+      <span id="tokenAddressText"></span>
+      <button onclick="copyToClipboard('tokenAddressText')">Copy</button>
+    </div>
 
     <button class="chain-btn" id="btnAddChain">Add / Switch Fuji Testnet</button>
+    <button class="token-btn" id="btnAddToken">Add Token to Wallet</button>
+  </div>
 
-    <input type="text" id="claimAddress" placeholder="Enter your wallet address" />
-    <button class="claim-btn" id="btnClaim">Claim Tokens</button>
+  <!-- Manual Add Dialog -->
+  <div class="dialog" id="manualDialog">
+    <h2>Manual Token Addition</h2>
+    <p>Your wallet does not support automatic token addition.<br>Use the details below to add manually:</p>
 
-    <button class="token-btn" id="btnAddToken">Add MTK Token</button>
+    <div class="copy-box">
+      <span id="copyAddress"></span>
+      <button onclick="copyToClipboard('copyAddress')">Copy</button>
+    </div>
+    <div class="copy-box">
+      <span id="copySymbol"></span>
+      <button onclick="copyToClipboard('copySymbol')">Copy</button>
+    </div>
+    <div class="copy-box">
+      <span id="copyDecimals"></span>
+      <button onclick="copyToClipboard('copyDecimals')">Copy</button>
+    </div>
 
-    <p id="status" style="font-size:0.9rem;color:#bbb;"></p>
+    <button class="close-btn" onclick="closeDialog()">Close</button>
   </div>
 
   <script>
-    // --- Configuration ---
+    /***********************************
+     * CONFIGURATION VARIABLES
+     ***********************************/
     const TOKEN_ADDRESS = "0x57c3804b6cB541246d42F037dDAb1431f7fd88B5";
     const TOKEN_SYMBOL = "MTK";
+    const TOKEN_NAME = "MegaTanker";
     const TOKEN_DECIMALS = 18;
     const TOKEN_IMAGE = "https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg";
-    const FUJI_CHAIN_ID = "0xA869";
+
+    // Fuji Testnet details
+    const FUJI_CHAIN_ID = "0xA869"; // 43113 in hex
     const FUJI_PARAMS = {
       chainId: FUJI_CHAIN_ID,
       chainName: "Avalanche Fuji Testnet",
-      nativeCurrency: { name: "Avalanche", symbol: "AVAX", decimals: 18 },
+      nativeCurrency: {
+        name: "Avalanche",
+        symbol: "AVAX",
+        decimals: 18,
+      },
       rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
-      blockExplorerUrls: ["https://testnet.snowtrace.io/"]
+      blockExplorerUrls: ["https://testnet.snowtrace.io/"],
     };
 
-    const RELAYER_URL = "https://your-vercel-relayer.vercel.app/api/claim"; // your backend relayer endpoint
+    /***********************************
+     * INITIALIZE PAGE CONTENT
+     ***********************************/
+    document.getElementById("tokenLogo").src = TOKEN_IMAGE;
+    document.getElementById("tokenName").innerText = TOKEN_NAME + " (" + TOKEN_SYMBOL + ")";
+    document.getElementById("tokenSymbolText").innerText = "Ticker: " + TOKEN_SYMBOL;
+    document.getElementById("tokenAddressText").innerText = TOKEN_ADDRESS;
 
-    const statusEl = document.getElementById("status");
-    function status(msg) { statusEl.textContent = msg; }
+    document.getElementById("copyAddress").innerText = TOKEN_ADDRESS;
+    document.getElementById("copySymbol").innerText = TOKEN_SYMBOL;
+    document.getElementById("copyDecimals").innerText = TOKEN_DECIMALS;
 
-    function getProvider() {
-      if (window.ethereum) return window.ethereum;
-      return null;
-    }
-
-    // --- Chain Functions ---
+    /***********************************
+     * WALLET FUNCTIONS
+     ***********************************/
     async function addOrSwitchFuji() {
-      const provider = getProvider();
-      if (!provider) {
-        alert("Please open this page inside your wallet browser (MetaMask, Trust Wallet, etc.)");
+      if (!window.ethereum) {
+        alert("No wallet detected. Please use a compatible Web3 wallet.");
         return;
       }
       try {
-        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: FUJI_CHAIN_ID }] });
-        alert("✅ Switched to Avalanche Fuji Testnet!");
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: FUJI_CHAIN_ID }],
+        });
       } catch (error) {
         if (error.code === 4902) {
-          await provider.request({ method: "wallet_addEthereumChain", params: [FUJI_PARAMS] });
-          alert("✅ Fuji Testnet added!");
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [FUJI_PARAMS],
+            });
+          } catch (addError) {
+            alert("Failed to add Fuji network: " + addError.message);
+          }
         } else {
-          console.error(error);
+          alert("Error switching network: " + error.message);
         }
       }
     }
 
-    // --- Token Add Function (with MetaMask Mobile Fix) ---
-    async function addTokenFixed() {
-      const provider = getProvider();
-      if (!provider) {
-        alert("Please open this page in your wallet browser.");
+    async function addToken() {
+      if (!window.ethereum) {
+        alert("No wallet detected. Please use a compatible Web3 wallet.");
         return;
       }
 
       try {
-        status("Ensuring wallet is on Fuji...");
-        await new Promise((resolve) => setTimeout(resolve, 1200)); // wait for chain update
-        const currentChain = await provider.request({ method: "eth_chainId" });
-        if (currentChain.toLowerCase() !== FUJI_CHAIN_ID.toLowerCase()) {
-          alert("Please manually switch to Avalanche Fuji in your wallet, then try again.");
-          return;
-        }
-
-        status("Adding token to wallet...");
-        const wasAdded = await provider.request({
+        const wasAdded = await window.ethereum.request({
           method: "wallet_watchAsset",
           params: {
             type: "ERC20",
@@ -181,45 +256,38 @@
         });
 
         if (wasAdded) {
-          status("✅ Token added successfully!");
+          console.log("Token successfully added!");
         } else {
-          status("Token addition rejected or unsupported.");
+          console.log("Token addition canceled by user.");
         }
       } catch (err) {
-        console.error("Add token error:", err);
-        alert("MetaMask Mobile may not yet support adding tokens automatically. You can add manually:\n\n" +
-              `Token: ${TOKEN_SYMBOL}\nAddress: ${TOKEN_ADDRESS}\nDecimals: ${TOKEN_DECIMALS}`);
+        console.error("Error adding token:", err);
+        showDialog(); // fallback to manual addition
       }
     }
 
-    // --- Claim Function ---
-    async function claimTokens() {
-      const address = document.getElementById("claimAddress").value.trim();
-      if (!address) return alert("Please enter a valid wallet address.");
-
-      status("⏳ Sending claim request...");
-      try {
-        const res = await fetch(RELAYER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ address }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          status("🎉 Tokens claimed! Now add MTK to view balance.");
-        } else {
-          status("❌ Claim failed: " + (data.message || "Unknown error"));
-        }
-      } catch (err) {
-        console.error("Claim error:", err);
-        status("❌ Error sending claim request.");
-      }
+    /***********************************
+     * DIALOG FUNCTIONS
+     ***********************************/
+    function showDialog() {
+      document.getElementById("manualDialog").style.display = "block";
     }
 
-    // --- Bind buttons ---
+    function closeDialog() {
+      document.getElementById("manualDialog").style.display = "none";
+    }
+
+    function copyToClipboard(id) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text);
+      alert("Copied: " + text);
+    }
+
+    /***********************************
+     * EVENT LISTENERS
+     ***********************************/
     document.getElementById("btnAddChain").addEventListener("click", addOrSwitchFuji);
-    document.getElementById("btnAddToken").addEventListener("click", addTokenFixed);
-    document.getElementById("btnClaim").addEventListener("click", claimTokens);
+    document.getElementById("btnAddToken").addEventListener("click", addToken);
   </script>
 </body>
 </html>
