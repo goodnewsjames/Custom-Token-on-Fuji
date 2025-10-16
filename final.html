@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MegaTanker (MTK) Airdrop</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0b0f19, #1a2234);
+      color: #fff;
+      font-family: "Poppins", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      width: 90%;
+      max-width: 420px;
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 20px;
+      border: 2px solid #ff5f79;
+    }
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 1px;
+    }
+    p {
+      margin: 8px 0 20px;
+      font-size: 1rem;
+      color: #ccc;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      margin: 8px 0 16px;
+      font-size: 1rem;
+      outline: none;
+    }
+    button {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      font-size: 1rem;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+    button:hover {
+      transform: scale(1.02);
+    }
+    .btn-fuji {
+      background-color: #1e88e5;
+    }
+    .btn-fuji:hover {
+      background-color: #3b9ef3;
+    }
+    .btn-claim {
+      background-color: #ff3366;
+    }
+    .btn-claim:hover {
+      background-color: #ff5f79;
+    }
+    .btn-token {
+      background-color: #6a1b9a;
+    }
+    .btn-token:hover {
+      background-color: #8e24aa;
+    }
+    .status {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: #90caf9;
+      min-height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg" alt="MTK Logo" />
+    <h1>MegaTanker (MTK)</h1>
+    <p>Claim free tokens on Fuji Testnet</p>
+
+    <button class="btn-fuji" id="btnAddChain">Add / Switch Fuji Testnet</button>
+
+    <input type="text" id="walletAddress" placeholder="Paste your wallet address (0x...)" />
+    <button class="btn-claim" id="btnClaim">Claim Airdrop</button>
+
+    <button class="btn-token" id="btnAddToken">Add MTK Token to Wallet</button>
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    // ==== CONFIG ====
+    const TOKEN_ADDRESS = "0x57c3804b6cB541246d42F037dDAb1431f7fd88B5";
+    const TOKEN_SYMBOL = "MTK";
+    const TOKEN_DECIMALS = 18;
+    const TOKEN_IMAGE = "https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg";
+
+    const RELAYER_URL = "https://your-vercel-app.vercel.app/api/claim"; // Replace this with your actual backend endpoint
+
+    const FUJI_CHAIN_ID = "0xA869";
+    const FUJI_PARAMS = {
+      chainId: FUJI_CHAIN_ID,
+      chainName: "Avalanche Fuji Testnet",
+      nativeCurrency: {
+        name: "Avalanche",
+        symbol: "AVAX",
+        decimals: 18,
+      },
+      rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
+      blockExplorerUrls: ["https://testnet.snowtrace.io/"],
+    };
+
+    const statusEl = document.getElementById("status");
+
+    // ==== FUNCTIONS ====
+    async function addOrSwitchFuji() {
+      if (!window.ethereum) {
+        alert("No EVM wallet found. Open this page inside MetaMask, Trust Wallet, or Rabby browser.");
+        return;
+      }
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: FUJI_CHAIN_ID }],
+        });
+        statusEl.textContent = "✅ Switched to Fuji Testnet";
+      } catch (switchError) {
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [FUJI_PARAMS],
+            });
+            statusEl.textContent = "✅ Fuji Testnet added";
+          } catch (addError) {
+            alert("Failed to add Fuji chain: " + addError.message);
+          }
+        } else {
+          alert("Error switching chain: " + switchError.message);
+        }
+      }
+    }
+
+    async function claimAirdrop() {
+      const address = document.getElementById("walletAddress").value.trim();
+      if (!address) {
+        alert("Please enter a wallet address");
+        return;
+      }
+      statusEl.textContent = "⏳ Sending claim request...";
+      try {
+        const res = await fetch(RELAYER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusEl.textContent = "✅ Claim successful! Add token to see balance.";
+        } else {
+          statusEl.textContent = "❌ Claim failed: " + (data.message || "Unknown error");
+        }
+      } catch (err) {
+        statusEl.textContent = "❌ Error: " + err.message;
+      }
+    }
+
+    async function addToken() {
+      if (!window.ethereum) {
+        alert("No wallet found. Open inside MetaMask, Rabby, or Trust Wallet browser.");
+        return;
+      }
+      try {
+        const wasAdded = await window.ethereum.request({
+          method: "wallet_watchAsset",
+          params: {
+            type: "ERC20",
+            options: {
+              address: TOKEN_ADDRESS,
+              symbol: TOKEN_SYMBOL,
+              decimals: TOKEN_DECIMALS,
+              image: TOKEN_IMAGE,
+            },
+          },
+        });
+        if (wasAdded) {
+          statusEl.textContent = "✅ Token added to your wallet!";
+        } else {
+          statusEl.textContent = "Token addition rejected.";
+        }
+      } catch (err) {
+        statusEl.textContent = "❌ Error adding token: " + err.message;
+      }
+    }
+
+    // ==== EVENT LISTENERS ====
+    document.getElementById("btnAddChain").addEventListener("click", addOrSwitchFuji);
+    document.getElementById("btnClaim").addEventListener("click", claimAirdrop);
+    document.getElementById("btnAddToken").addEventListener("click", addToken);
+  </script>
+</body>
+</html>
