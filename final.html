@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MegaTanker (MTK) Airdrop</title>
+  <title>MegaTanker Airdrop | Avalanche Fuji</title>
+  <script src="https://unpkg.com/ethers@6.7.0/dist/ethers.umd.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -18,12 +19,12 @@
       text-align: center;
     }
     .card {
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 24px;
       padding: 40px;
       box-shadow: 0 8px 30px rgba(0,0,0,0.5);
       width: 90%;
-      max-width: 420px;
+      max-width: 400px;
     }
     .logo {
       width: 120px;
@@ -39,24 +40,15 @@
       letter-spacing: 1px;
     }
     p {
-      margin: 8px 0 20px;
+      margin: 8px 0 24px;
       font-size: 1rem;
       color: #ccc;
-    }
-    input {
-      width: 100%;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      margin: 8px 0 16px;
-      font-size: 1rem;
-      outline: none;
     }
     button {
       display: block;
       width: 100%;
       padding: 14px;
-      margin: 10px 0;
+      margin: 12px 0;
       font-size: 1rem;
       color: #fff;
       border: none;
@@ -67,29 +59,32 @@
     button:hover {
       transform: scale(1.02);
     }
-    .btn-fuji {
+    .chain-btn {
       background-color: #1e88e5;
     }
-    .btn-fuji:hover {
+    .chain-btn:hover {
       background-color: #3b9ef3;
     }
-    .btn-claim {
-      background-color: #ff3366;
+    .token-btn {
+      background-color: #e94560;
     }
-    .btn-claim:hover {
+    .token-btn:hover {
       background-color: #ff5f79;
     }
-    .btn-token {
-      background-color: #6a1b9a;
+    .claim-btn {
+      background-color: #23d18b;
     }
-    .btn-token:hover {
-      background-color: #8e24aa;
+    .claim-btn:hover {
+      background-color: #2af5a2;
     }
-    .status {
-      margin-top: 12px;
-      font-size: 0.9rem;
-      color: #90caf9;
-      min-height: 18px;
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      margin: 12px 0;
+      font-size: 1rem;
+      text-align: center;
     }
   </style>
 </head>
@@ -97,77 +92,112 @@
   <div class="card">
     <img class="logo" src="https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg" alt="MTK Logo" />
     <h1>MegaTanker (MTK)</h1>
-    <p>Claim free tokens on Fuji Testnet</p>
+    <p>Avalanche Fuji Testnet</p>
 
-    <button class="btn-fuji" id="btnAddChain">Add / Switch Fuji Testnet</button>
+    <button class="chain-btn" id="btnAddChain">Add / Switch Fuji Testnet</button>
 
-    <input type="text" id="walletAddress" placeholder="Paste your wallet address (0x...)" />
-    <button class="btn-claim" id="btnClaim">Claim Airdrop</button>
+    <input type="text" id="claimAddress" placeholder="Enter your wallet address" />
+    <button class="claim-btn" id="btnClaim">Claim Tokens</button>
 
-    <button class="btn-token" id="btnAddToken">Add MTK Token to Wallet</button>
-    <div id="status" class="status"></div>
+    <button class="token-btn" id="btnAddToken">Add MTK Token</button>
+
+    <p id="status" style="font-size:0.9rem;color:#bbb;"></p>
   </div>
 
   <script>
-    // ==== CONFIG ====
+    // --- Configuration ---
     const TOKEN_ADDRESS = "0x57c3804b6cB541246d42F037dDAb1431f7fd88B5";
     const TOKEN_SYMBOL = "MTK";
     const TOKEN_DECIMALS = 18;
     const TOKEN_IMAGE = "https://raw.githubusercontent.com/goodnewsjames/Custom-Token-on-Fuji/main/images%20(3).jpeg";
-
-    const RELAYER_URL = "https://your-vercel-app.vercel.app/api/claim"; // Replace this with your actual backend endpoint
-
     const FUJI_CHAIN_ID = "0xA869";
     const FUJI_PARAMS = {
       chainId: FUJI_CHAIN_ID,
       chainName: "Avalanche Fuji Testnet",
-      nativeCurrency: {
-        name: "Avalanche",
-        symbol: "AVAX",
-        decimals: 18,
-      },
+      nativeCurrency: { name: "Avalanche", symbol: "AVAX", decimals: 18 },
       rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
-      blockExplorerUrls: ["https://testnet.snowtrace.io/"],
+      blockExplorerUrls: ["https://testnet.snowtrace.io/"]
     };
 
-    const statusEl = document.getElementById("status");
+    const RELAYER_URL = "https://your-vercel-relayer.vercel.app/api/claim"; // your backend relayer endpoint
 
-    // ==== FUNCTIONS ====
+    const statusEl = document.getElementById("status");
+    function status(msg) { statusEl.textContent = msg; }
+
+    function getProvider() {
+      if (window.ethereum) return window.ethereum;
+      return null;
+    }
+
+    // --- Chain Functions ---
     async function addOrSwitchFuji() {
-      if (!window.ethereum) {
-        alert("No EVM wallet found. Open this page inside MetaMask, Trust Wallet, or Rabby browser.");
+      const provider = getProvider();
+      if (!provider) {
+        alert("Please open this page inside your wallet browser (MetaMask, Trust Wallet, etc.)");
         return;
       }
       try {
-        await window.ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: FUJI_CHAIN_ID }],
-        });
-        statusEl.textContent = "✅ Switched to Fuji Testnet";
-      } catch (switchError) {
-        if (switchError.code === 4902) {
-          try {
-            await window.ethereum.request({
-              method: "wallet_addEthereumChain",
-              params: [FUJI_PARAMS],
-            });
-            statusEl.textContent = "✅ Fuji Testnet added";
-          } catch (addError) {
-            alert("Failed to add Fuji chain: " + addError.message);
-          }
+        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: FUJI_CHAIN_ID }] });
+        alert("✅ Switched to Avalanche Fuji Testnet!");
+      } catch (error) {
+        if (error.code === 4902) {
+          await provider.request({ method: "wallet_addEthereumChain", params: [FUJI_PARAMS] });
+          alert("✅ Fuji Testnet added!");
         } else {
-          alert("Error switching chain: " + switchError.message);
+          console.error(error);
         }
       }
     }
 
-    async function claimAirdrop() {
-      const address = document.getElementById("walletAddress").value.trim();
-      if (!address) {
-        alert("Please enter a wallet address");
+    // --- Token Add Function (with MetaMask Mobile Fix) ---
+    async function addTokenFixed() {
+      const provider = getProvider();
+      if (!provider) {
+        alert("Please open this page in your wallet browser.");
         return;
       }
-      statusEl.textContent = "⏳ Sending claim request...";
+
+      try {
+        status("Ensuring wallet is on Fuji...");
+        await new Promise((resolve) => setTimeout(resolve, 1200)); // wait for chain update
+        const currentChain = await provider.request({ method: "eth_chainId" });
+        if (currentChain.toLowerCase() !== FUJI_CHAIN_ID.toLowerCase()) {
+          alert("Please manually switch to Avalanche Fuji in your wallet, then try again.");
+          return;
+        }
+
+        status("Adding token to wallet...");
+        const wasAdded = await provider.request({
+          method: "wallet_watchAsset",
+          params: {
+            type: "ERC20",
+            options: {
+              address: TOKEN_ADDRESS,
+              symbol: TOKEN_SYMBOL,
+              decimals: TOKEN_DECIMALS,
+              image: TOKEN_IMAGE,
+            },
+          },
+        });
+
+        if (wasAdded) {
+          status("✅ Token added successfully!");
+        } else {
+          status("Token addition rejected or unsupported.");
+        }
+      } catch (err) {
+        console.error("Add token error:", err);
+        alert("MetaMask Mobile may not yet support adding tokens automatically. You can add manually:\n\n" +
+              `Token: ${TOKEN_SYMBOL}\nAddress: ${TOKEN_ADDRESS}\nDecimals: ${TOKEN_DECIMALS}`);
+      }
+    }
+
+    // --- Claim Function ---
+    async function claimTokens() {
+      const address = document.getElementById("claimAddress").value.trim();
+      if (!address) return alert("Please enter a valid wallet address.");
+
+      status("⏳ Sending claim request...");
       try {
         const res = await fetch(RELAYER_URL, {
           method: "POST",
@@ -176,165 +206,20 @@
         });
         const data = await res.json();
         if (data.success) {
-          statusEl.textContent = "✅ Claim successful! Add token to see balance.";
+          status("🎉 Tokens claimed! Now add MTK to view balance.");
         } else {
-          statusEl.textContent = "❌ Claim failed: " + (data.message || "Unknown error");
+          status("❌ Claim failed: " + (data.message || "Unknown error"));
         }
       } catch (err) {
-        statusEl.textContent = "❌ Error: " + err.message;
+        console.error("Claim error:", err);
+        status("❌ Error sending claim request.");
       }
     }
 
-   async function addTokenWithEnsureFuji({
-  tokenAddress = TOKEN_ADDRESS,
-  tokenSymbol = TOKEN_SYMBOL,
-  tokenDecimals = TOKEN_DECIMALS,
-  tokenImage = TOKEN_IMAGE,
-  requiredChainId = "0xA869", // Fuji
-  chainParams = FUJI_PARAMS
-} = {}) {
-  const provider = window.ethereum;
-  const status = (msg) => { console.log(msg); statusEl.textContent = msg; };
-
-  if (!provider) {
-    alert("No injected wallet detected. Please open this page in your wallet's internal browser (MetaMask/Trust/etc.) or use a browser with an injected wallet.");
-    return;
-  }
-
-  // helper: get chain id
-  async function getChainId() {
-    try {
-      return await provider.request({ method: "eth_chainId" });
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // helper: switch or add + switch
-  async function ensureFuji() {
-    const current = await getChainId();
-    if (current === requiredChainId) {
-      return true;
-    }
-
-    try {
-      // try switching first
-      await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: requiredChainId }]
-      });
-      return true;
-    } catch (switchErr) {
-      // 4902 -> chain not found in wallet; try to add
-      if (switchErr && switchErr.code === 4902) {
-        try {
-          await provider.request({
-            method: "wallet_addEthereumChain",
-            params: [chainParams]
-          });
-          // after adding, request switch again
-          await provider.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: requiredChainId }]
-          });
-          return true;
-        } catch (addErr) {
-          console.error("wallet_addEthereumChain failed:", addErr);
-          return false;
-        }
-      }
-      console.error("wallet_switchEthereumChain failed:", switchErr);
-      return false;
-    }
-  }
-
-  // Step 1: ensure chain
-  status("Ensuring wallet is on Fuji testnet...");
-  const ok = await ensureFuji();
-  if (!ok) {
-    alert("Could not switch/add Fuji in your wallet. Please add it manually and retry.");
-    return;
-  }
-
-  // Step 2: wait for chain to actually be set (listen or poll)
-  let chain = await getChainId();
-  if (chain !== requiredChainId) {
-    status("Waiting for chain to switch...");
-    // wait up to 6s for chainChanged
-    await new Promise((resolve) => {
-      const onChainChanged = (_chainId) => {
-        if (_chainId === requiredChainId) {
-          provider.removeListener("chainChanged", onChainChanged);
-          resolve();
-        }
-      };
-      provider.on && provider.on("chainChanged", onChainChanged);
-      // fallback poll
-      const interval = setInterval(async () => {
-        const c = await getChainId();
-        if (c === requiredChainId) {
-          clearInterval(interval);
-          provider.removeListener && provider.removeListener("chainChanged", onChainChanged);
-          resolve();
-        }
-      }, 500);
-      // timeout
-      setTimeout(() => {
-        clearInterval(interval);
-        provider.removeListener && provider.removeListener("chainChanged", onChainChanged);
-        resolve();
-      }, 6000);
-    });
-    chain = await getChainId();
-  }
-
-  if (chain !== requiredChainId) {
-    status("Wallet is not on Fuji. Please switch manually and then click Add Token.");
-    return;
-  }
-
-  // Step 3: call wallet_watchAsset
-  status("Requesting wallet to add token...");
-  try {
-    const wasAdded = await provider.request({
-      method: "wallet_watchAsset",
-      params: {
-        type: "ERC20",
-        options: {
-          address: tokenAddress,
-          symbol: tokenSymbol,
-          decimals: tokenDecimals,
-          image: tokenImage
-        },
-      },
-    });
-    if (wasAdded) {
-      status("✅ Token added to wallet!");
-      return;
-    } else {
-      status("Token addition rejected by user or wallet.");
-      showManualAddUI();
-      return;
-    }
-  } catch (err) {
-    console.error("wallet_watchAsset error:", err);
-    // Some wallets (Trust older versions) will throw; show manual fallback
-    status("Automatic token add failed in this wallet. Showing manual instructions.");
-    showManualAddUI();
-    return;
-  }
-
-  // fallback UI: shows contract info and short manual instructions
-  function showManualAddUI() {
-    const manualMsg = `Automatic add not supported. Please add token manually in your wallet using:\n\nToken: ${tokenSymbol}\nContract: ${tokenAddress}\nDecimals: ${tokenDecimals}\nNetwork: Avalanche Fuji (43113)\n\nOpen your wallet -> Add token -> Custom token -> paste the contract address.`;
-    alert(manualMsg);
-  }
-}
-
-    // ==== EVENT LISTENERS ====
+    // --- Bind buttons ---
     document.getElementById("btnAddChain").addEventListener("click", addOrSwitchFuji);
-    document.getElementById("btnClaim").addEventListener("click", claimAirdrop);
-    document.getElementById("btnAddToken").addEventListener("click", addToken);
+    document.getElementById("btnAddToken").addEventListener("click", addTokenFixed);
+    document.getElementById("btnClaim").addEventListener("click", claimTokens);
   </script>
 </body>
 </html>
